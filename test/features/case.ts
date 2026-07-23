@@ -209,7 +209,7 @@ export default function supportsCase(format: FormatFn) {
     expect(result).toBe(dedent`
     SELECT
       CASE
-        WHEN x1 BETWEEN 1 AND 12  THEN ''
+        WHEN x1 BETWEEN 1 AND 12 THEN ''
       END c1;
   `);
   });

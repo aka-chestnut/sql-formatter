@@ -222,7 +222,7 @@ export default class ExpressionFormatter {
     this.layout = this.formatSubExpression(node.expr1);
     this.layout.add(WS.NO_SPACE, WS.SPACE, this.showNonTabularKw(node.andKw), WS.SPACE);
     this.layout = this.formatSubExpression(node.expr2);
-    this.layout.add(WS.SPACE);
+    this.layout.add(WS.NO_SPACE, WS.SPACE);
   }
 
   private formatCaseExpression(node: CaseExpressionNode) {

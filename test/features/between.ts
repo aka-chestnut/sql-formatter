@@ -19,7 +19,7 @@ export default function supportsBetween(format: FormatFn) {
 
   it('supports complex expressions inside BETWEEN', () => {
     // Not ideal, but better than crashing
-    expect(format('foo BETWEEN 1+2 AND 3+4')).toBe('foo BETWEEN 1 + 2 AND 3  + 4');
+    expect(format('foo BETWEEN 1+2 AND 3+4')).toBe('foo BETWEEN 1 + 2 AND 3 + 4');
   });
 
   it('supports CASE inside BETWEEN', () => {
@@ -27,6 +27,15 @@ export default function supportsBetween(format: FormatFn) {
       foo BETWEEN CASE x
         WHEN 1 THEN 2
       END AND 3
+    `);
+  });
+
+  it('does not add extra space after the BETWEEN expression', () => {
+    expect(format('SELECT CASE WHEN foo BETWEEN 1 AND 2 THEN 3 END')).toBe(dedent`
+      SELECT
+        CASE
+          WHEN foo BETWEEN 1 AND 2 THEN 3
+        END
     `);
   });
 
