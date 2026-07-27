@@ -43,6 +43,8 @@ interface ExpressionFormatterParams {
   params: Params;
   layout: Layout;
   inline?: boolean;
+  // openParen of the nearest enclosing bracket ("(", "[" or "{"), if any
+  enclosingBracket?: string;
 }
 
 export interface DialectFormatOptions {
@@ -76,13 +78,22 @@ export default class ExpressionFormatter {
   private inline = false;
   private nodes: AstNode[] = [];
   private index = -1;
+  private enclosingBracket?: string;
 
-  constructor({ cfg, dialectCfg, params, layout, inline = false }: ExpressionFormatterParams) {
+  constructor({
+    cfg,
+    dialectCfg,
+    params,
+    layout,
+    inline = false,
+    enclosingBracket,
+  }: ExpressionFormatterParams) {
     this.cfg = cfg;
     this.dialectCfg = dialectCfg;
     this.inline = inline;
     this.params = params;
     this.layout = layout;
+    this.enclosingBracket = enclosingBracket;
   }
 
   public format(nodes: AstNode[]): Layout {
@@ -194,7 +205,7 @@ export default class ExpressionFormatter {
   }
 
   private formatParenthesis(node: ParenthesisNode) {
-    const inlineLayout = this.formatInlineExpression(node.children);
+    const inlineLayout = this.formatInlineExpression(node.children, node.openParen);
 
     if (inlineLayout) {
       this.layout.add(node.openParen);
@@ -205,11 +216,11 @@ export default class ExpressionFormatter {
 
       if (isTabularStyle(this.cfg)) {
         this.layout.add(WS.INDENT);
-        this.layout = this.formatSubExpression(node.children);
+        this.layout = this.formatSubExpression(node.children, node.openParen);
       } else {
         this.layout.indentation.increaseBlockLevel();
         this.layout.add(WS.INDENT);
-        this.layout = this.formatSubExpression(node.children);
+        this.layout = this.formatSubExpression(node.children, node.openParen);
         this.layout.indentation.decreaseBlockLevel();
       }
 
@@ -346,6 +357,9 @@ export default class ExpressionFormatter {
       this.layout.add(text, WS.SPACE);
     } else if (this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(text)) {
       this.layout.add(WS.NO_SPACE, text);
+    } else if (text === ':' && this.enclosingBracket === '[') {
+      // Array slice colon (e.g. arr[1:5]) is dense; the key-value ":" keeps its space.
+      this.layout.add(WS.NO_SPACE, text);
     } else if (text === ':') {
       this.layout.add(WS.NO_SPACE, text, WS.SPACE);
     } else {
@@ -471,17 +485,21 @@ export default class ExpressionFormatter {
     }
   }
 
-  private formatSubExpression(nodes: AstNode[]): Layout {
+  private formatSubExpression(nodes: AstNode[], enclosingBracket = this.enclosingBracket): Layout {
     return new ExpressionFormatter({
       cfg: this.cfg,
       dialectCfg: this.dialectCfg,
       params: this.params,
       layout: this.layout,
       inline: this.inline,
+      enclosingBracket,
     }).format(nodes);
   }
 
-  private formatInlineExpression(nodes: AstNode[]): Layout | undefined {
+  private formatInlineExpression(
+    nodes: AstNode[],
+    enclosingBracket = this.enclosingBracket
+  ): Layout | undefined {
     const oldParamIndex = this.params.getPositionalParameterIndex();
     try {
       return new ExpressionFormatter({
@@ -490,6 +508,7 @@ export default class ExpressionFormatter {
         params: this.params,
         layout: new InlineLayout(this.cfg.expressionWidth),
         inline: true,
+        enclosingBracket,
       }).format(nodes);
     } catch (e) {
       if (e instanceof InlineLayoutError) {

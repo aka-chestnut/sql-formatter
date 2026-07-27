@@ -160,14 +160,21 @@ describe('DuckDBFormatter', () => {
     `);
   });
 
-  // TODO: This currently conflicts with ":"-operator in struct literals
-  it.skip('supports array slice operator', () => {
+  it('supports array slice operator', () => {
     expect(format('SELECT foo[:5], bar[1:], baz[1:5], zap[:];')).toBe(dedent`
       SELECT
         foo[:5],
         bar[1:],
         baz[1:5],
         zap[:];
+    `);
+  });
+
+  it('denses array-slice colon while keeping struct/list colon spaced', () => {
+    expect(format("SELECT {'k': list[1:5]}, arr[i:j];")).toBe(dedent`
+      SELECT
+        {'k': list[1:5]},
+        arr[i:j];
     `);
   });
 
