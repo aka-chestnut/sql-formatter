@@ -44,7 +44,7 @@ interface ExpressionFormatterParams {
   layout: Layout;
   inline?: boolean;
   // openParen of the nearest enclosing bracket ("(", "[" or "{"), if any
-  enclosingBracket?: string;
+  enclosingParenthesis?: string;
 }
 
 export interface DialectFormatOptions {
@@ -78,7 +78,7 @@ export default class ExpressionFormatter {
   private inline = false;
   private nodes: AstNode[] = [];
   private index = -1;
-  private enclosingBracket?: string;
+  private enclosingParenthesis?: string;
 
   constructor({
     cfg,
@@ -86,14 +86,14 @@ export default class ExpressionFormatter {
     params,
     layout,
     inline = false,
-    enclosingBracket,
+    enclosingParenthesis,
   }: ExpressionFormatterParams) {
     this.cfg = cfg;
     this.dialectCfg = dialectCfg;
     this.inline = inline;
     this.params = params;
     this.layout = layout;
-    this.enclosingBracket = enclosingBracket;
+    this.enclosingParenthesis = enclosingParenthesis;
   }
 
   public format(nodes: AstNode[]): Layout {
@@ -357,7 +357,7 @@ export default class ExpressionFormatter {
       this.layout.add(text, WS.SPACE);
     } else if (this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(text)) {
       this.layout.add(WS.NO_SPACE, text);
-    } else if (text === ':' && this.enclosingBracket === '[') {
+    } else if (text === ':' && this.enclosingParenthesis === '[') {
       // Array slice colon (e.g. arr[1:5]) is dense; the key-value ":" keeps its space.
       this.layout.add(WS.NO_SPACE, text);
     } else if (text === ':') {
@@ -485,20 +485,23 @@ export default class ExpressionFormatter {
     }
   }
 
-  private formatSubExpression(nodes: AstNode[], enclosingBracket = this.enclosingBracket): Layout {
+  private formatSubExpression(
+    nodes: AstNode[],
+    enclosingParenthesis = this.enclosingParenthesis
+  ): Layout {
     return new ExpressionFormatter({
       cfg: this.cfg,
       dialectCfg: this.dialectCfg,
       params: this.params,
       layout: this.layout,
       inline: this.inline,
-      enclosingBracket,
+      enclosingParenthesis,
     }).format(nodes);
   }
 
   private formatInlineExpression(
     nodes: AstNode[],
-    enclosingBracket = this.enclosingBracket
+    enclosingParenthesis = this.enclosingParenthesis
   ): Layout | undefined {
     const oldParamIndex = this.params.getPositionalParameterIndex();
     try {
@@ -508,7 +511,7 @@ export default class ExpressionFormatter {
         params: this.params,
         layout: new InlineLayout(this.cfg.expressionWidth),
         inline: true,
-        enclosingBracket,
+        enclosingParenthesis,
       }).format(nodes);
     } catch (e) {
       if (e instanceof InlineLayoutError) {
