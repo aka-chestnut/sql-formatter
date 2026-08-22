@@ -358,7 +358,7 @@ export default class ExpressionFormatter {
     } else if (this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(text)) {
       this.layout.add(WS.NO_SPACE, text);
     } else if (text === ':' && this.enclosingParenthesis === '[') {
-      // Array slice colon (e.g. arr[1:5]) is dense; the key-value ":" keeps its space.
+      // Array slice colon (e.g. arr[1:5]) should be formatted as dense
       this.layout.add(WS.NO_SPACE, text);
     } else if (text === ':') {
       this.layout.add(WS.NO_SPACE, text, WS.SPACE);
