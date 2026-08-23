@@ -4,6 +4,7 @@
     "moduleResolution": "NodeNext",
     "target": "es6",
     "lib": ["es6", "dom"],
+    "types": ["jest", "node"],
     "rootDirs": ["src"],
     "baseUrl": "./",
     "sourceMap": true,
