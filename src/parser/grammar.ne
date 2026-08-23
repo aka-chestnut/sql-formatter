@@ -34,6 +34,20 @@ interface CommentAttachments {
   trailing?: CommentNode[];
 }
 
+interface ExpressionList {
+  previous?: ExpressionList;
+  value: AstNode;
+}
+
+const materializeExpressionList = (expressions?: ExpressionList): AstNode[] => {
+  const result: AstNode[] = [];
+  for (let current = expressions; current; current = current.previous) {
+    result.push(current.value);
+  }
+  result.reverse();
+  return result;
+};
+
 const addComments = (node: AstNode, { leading, trailing }: CommentAttachments): AstNode => {
   if (leading?.length) {
     node = { ...node, leadingComments: leading };
@@ -83,14 +97,24 @@ main -> statement:* {%
 statement -> expressions_or_clauses (%DELIMITER | %EOF) {%
   ([children, [delimiter]]) => ({
     type: NodeType.statement,
-    children,
+    children: materializeExpressionList(children),
     hasSemicolon: delimiter.type === TokenType.DELIMITER,
   })
 %}
 
 # To avoid ambiguity, plain expressions can only come before clauses
-expressions_or_clauses -> free_form_sql:* clause:* {%
-  ([expressions, clauses]) => [...expressions, ...clauses]
+# For performance, keep both in one persistent list until the surrounding rule is complete.
+expressions_or_clauses -> expression_list {% id %}
+expressions_or_clauses -> expressions_or_clauses clause {%
+  ([previous, value]) => ({ previous, value })
+%}
+
+# Avoid free_form_sql:*: Nearley implements it with array concatenation, which
+# copies every shared prefix and makes long expression lists quadratic.
+# Nearley's null matches no input; undefined represents an empty linked list.
+expression_list -> null {% () => undefined %}
+expression_list -> expression_list free_form_sql {%
+  ([previous, value]) => ({ previous, value })
 %}
 
 clause ->
@@ -119,11 +143,14 @@ limit_clause -> %LIMIT _ expression_chain_ (%COMMA free_form_sql:+):? {%
   }
 %}
 
-select_clause -> %RESERVED_SELECT (all_columns_asterisk free_form_sql:* | asteriskless_free_form_sql free_form_sql:*) {%
+select_clause -> %RESERVED_SELECT (all_columns_asterisk expression_list | asteriskless_free_form_sql expression_list) {%
   ([nameToken, [exp, expressions]]) => ({
     type: NodeType.clause,
     nameKw: toKeywordNode(nameToken),
-    children: [exp, ...expressions],
+    // Nearley completes every prefix; only materialize the surviving clause's children.
+    get children(): AstNode[] {
+      return [exp, ...materializeExpressionList(expressions)];
+    },
   })
 %}
 select_clause -> %RESERVED_SELECT {%
@@ -138,19 +165,23 @@ all_columns_asterisk -> %ASTERISK {%
   () => ({ type: NodeType.all_columns_asterisk })
 %}
 
-other_clause -> %RESERVED_CLAUSE free_form_sql:* {%
+other_clause -> %RESERVED_CLAUSE expression_list {%
   ([nameToken, children]) => ({
     type: NodeType.clause,
     nameKw: toKeywordNode(nameToken),
-    children,
+    get children(): AstNode[] {
+      return materializeExpressionList(children);
+    },
   })
 %}
 
-set_operation -> %RESERVED_SET_OPERATION free_form_sql:* {%
+set_operation -> %RESERVED_SET_OPERATION expression_list {%
   ([nameToken, children]) => ({
     type: NodeType.set_operation,
     nameKw: toKeywordNode(nameToken),
-    children,
+    get children(): AstNode[] {
+      return materializeExpressionList(children);
+    },
   })
 %}
 
@@ -232,25 +263,25 @@ function_call -> %RESERVED_FUNCTION_NAME _ parenthesis {%
 parenthesis -> "(" expressions_or_clauses ")" {%
   ([open, children, close]) => ({
     type: NodeType.parenthesis,
-    children: children,
+    children: materializeExpressionList(children),
     openParen: "(",
     closeParen: ")",
   })
 %}
 
-curly_braces -> "{" free_form_sql:* "}" {%
+curly_braces -> "{" expression_list "}" {%
   ([open, children, close]) => ({
     type: NodeType.parenthesis,
-    children: children,
+    children: materializeExpressionList(children),
     openParen: "{",
     closeParen: "}",
   })
 %}
 
-square_brackets -> "[" free_form_sql:* "]" {%
+square_brackets -> "[" expression_list "]" {%
   ([open, children, close]) => ({
     type: NodeType.parenthesis,
-    children: children,
+    children: materializeExpressionList(children),
     openParen: "[",
     closeParen: "]",
   })
