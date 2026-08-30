@@ -148,6 +148,20 @@ describe('PostgreSqlFormatter', () => {
   supportsLimiting(format, { limit: true, offset: true, fetchFirst: true, fetchNext: true });
   supportsDataTypeCase(format);
 
+  it('preserves pg_dump restrict commands', () => {
+    const result = format(
+      '\\restrict AbC123\ncreate table widgets(id integer);\n\\unrestrict AbC123'
+    );
+
+    expect(result).toBe(dedent`
+      \\restrict AbC123
+      create table widgets (id integer);
+
+      \\unrestrict AbC123
+    `);
+    expect(format(result)).toBe(result);
+  });
+
   // Regression test for issue #624
   it('supports array slice operator', () => {
     expect(format('SELECT foo[:5], bar[1:], baz[1:5], zap[:];')).toBe(dedent`
