@@ -286,6 +286,8 @@ export const postgresql: DialectOptions = {
     reservedDataTypes: dataTypes,
     reservedFunctionNames: functions,
     nestedBlockComments: true,
+    // Preserve pg_dump safety guards as opaque lines.
+    lineCommentTypes: ['--', '\\restrict ', '\\unrestrict '],
     extraParens: ['[]'],
     underscoresInNumbers: true,
     stringTypes: [
