@@ -148,6 +148,7 @@ describe('PostgreSqlFormatter', () => {
   supportsLimiting(format, { limit: true, offset: true, fetchFirst: true, fetchNext: true });
   supportsDataTypeCase(format);
 
+  // Regression test for issue #935
   it('preserves pg_dump restrict commands', () => {
     const result = format(
       '\\restrict AbC123\ncreate table widgets(id integer);\n\\unrestrict AbC123'
